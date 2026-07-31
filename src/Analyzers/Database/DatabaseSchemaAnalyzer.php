@@ -45,6 +45,7 @@ final class DatabaseSchemaAnalyzer extends AbstractAnalyzer implements Analyzer
         $findings = array_merge($findings, $this->checkPendingMigrations());
         $findings = array_merge($findings, $this->checkMigrationDownMethods());
         $findings = array_merge($findings, $this->checkSchemaBasics());
+        $findings = array_merge($findings, $this->checkSecondaryConnections());
 
         return $this->result($this->name(), $this->category(), $findings);
     }
@@ -429,6 +430,66 @@ final class DatabaseSchemaAnalyzer extends AbstractAnalyzer implements Analyzer
                 ['collations' => $unique]
             ),
         ];
+    }
+
+    /**
+     * @return array<int, \SdPayHub\Wraith\Results\Finding>
+     */
+    private function checkSecondaryConnections(): array
+    {
+        if (! $this->isProduction()) {
+            return [];
+        }
+
+        $default = (string) config('database.default', 'mysql');
+        $connections = (array) config('database.connections', []);
+        $findings = [];
+
+        foreach ($connections as $name => $config) {
+            if (! is_array($config) || (string) $name === $default) {
+                continue;
+            }
+
+            $driver = isset($config['driver']) ? (string) $config['driver'] : '';
+
+            if (! in_array($driver, ['mysql', 'pgsql', 'sqlsrv'], true)) {
+                continue;
+            }
+
+            $host = isset($config['host']) ? (string) $config['host'] : '';
+            $password = array_key_exists('password', $config) ? $config['password'] : null;
+            $username = isset($config['username']) ? (string) $config['username'] : '';
+
+            if (in_array($host, ['127.0.0.1', 'localhost'], true)) {
+                $findings[] = $this->finding(
+                    Severity::MEDIUM,
+                    $this->category(),
+                    'database.secondary_localhost',
+                    sprintf('Secondary DB connection `%s` points at %s in production.', $name, $host),
+                    'Localhost secondary connections often indicate unfinished multi-DB production config.',
+                    sprintf('Point `%s` at the real production host or remove unused connections.', $name),
+                    null,
+                    false,
+                    ['connection' => $name, 'host' => $host]
+                );
+            }
+
+            if ($password === null || $password === '') {
+                $findings[] = $this->finding(
+                    Severity::HIGH,
+                    $this->category(),
+                    'database.secondary_empty_password',
+                    sprintf('Secondary DB connection `%s` has an empty password in production.', $name),
+                    'Empty DB passwords in production are a common credential leak / default leftover.',
+                    sprintf('Set a strong password for connection `%s` (user: %s).', $name, $username !== '' ? $username : 'unknown'),
+                    null,
+                    false,
+                    ['connection' => $name]
+                );
+            }
+        }
+
+        return $findings;
     }
 
     private function quoteIdent(string $name): string

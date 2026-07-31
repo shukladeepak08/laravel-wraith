@@ -162,15 +162,48 @@ php artisan wraith --restore   # if you need to undo
 
 ## What Wraith checks
 
-- **Application** — debug mode, app key, timezone, storage link, config/route cache in production  
-- **Security** — session cookies, HTTPS URL, `.env` exposure, `composer audit`, npm/pnpm audit, gitleaks hint  
-- **Configuration** — missing env keys, bad bool values  
-- **Database** — pending migrations, missing `down()`, PKs/FKs/indexes, collation (deepest on MySQL)  
-- **Eloquent** — mass assignment, soft deletes mismatches  
-- **Routes** — duplicates, unnamed routes, closures in production, API throttling  
-- **Performance** — `sync`/`file`/`array` drivers in production, OPcache, assets, Horizon/Octane  
-- **Code quality** — wraps PHPStan & Pint when installed  
-- **Dynamic (opt-in)** — N+1 / duplicate / slow query patterns via route replay  
+### Application
+- Debug mode, app key, timezone, storage link, config/route cache in production  
+- Writable `storage/` + `bootstrap/cache`  
+- Scheduled tasks defined (cron reminder for production)  
+
+### Security
+- Session cookies, HTTPS `APP_URL`, `.env` exposure  
+- `composer audit` + npm/pnpm audit; gitleaks suggestion  
+- **Telescope / Horizon / Pulse / Debugbar** present in production  
+- **Trusted proxies** empty/missing (Cloudflare/ALB footgun)  
+- **CORS** `*` (especially with credentials)  
+- **Sanctum ↔ SESSION_DOMAIN** alignment for SPAs  
+- **Executable uploads** under `storage/app/public`  
+- **Abandoned Composer packages**  
+
+### Configuration
+- Missing env keys, bad bool values  
+- **`.env.example` drift** vs `config/*.php`  
+- **Composer PHP platform / constraint** vs runtime PHP  
+
+### Database
+- Pending migrations, missing `down()`, PKs/FKs/indexes, collation  
+- **Secondary DB connections** using localhost / empty password in production  
+
+### Eloquent
+- Mass assignment, soft deletes mismatches, weak missing-casts signals  
+
+### Routes
+- Duplicates, unnamed routes, closures in production, API throttling  
+- **Login / password-reset / OTP routes without throttle**  
+
+### Performance
+- `sync`/`file`/`array` drivers, OPcache, assets, Horizon/Octane config  
+- **Mail = log/array**, **filesystem = local**, noisy single-file logs in production  
+- **Redis prefix** collisions / empty prefixes  
+- **Queue retry_after vs timeout**, missing **failed_jobs** table  
+
+### Code quality
+- Wraps PHPStan & Pint when installed  
+
+### Dynamic (opt-in `--dynamic`)
+- N+1 / duplicate / slow query patterns via route replay  
 
 ---
 

@@ -2,6 +2,14 @@
 
 All notable changes to `sdpayhub/laravel-wraith` will be documented in this file.
 
+## [0.2.0] — 2026-07-31
+
+### Added
+- Real-world production checks: exposed Telescope/Horizon/Pulse/Debugbar, trusted proxies, CORS wildcards, Sanctum/session domain alignment, public-disk executables, abandoned packages
+- Mail/filesystem/log driver sanity, Redis prefix warnings, queue retry_after/timeout + failed_jobs table
+- `.env.example` drift, Composer PHP platform/runtime mismatch
+- Auth route throttling (login/password/OTP), storage permissions, schedule/cron reminder, secondary DB localhost/empty password
+
 ## [0.1.1] — 2026-07-31
 
 ### Changed

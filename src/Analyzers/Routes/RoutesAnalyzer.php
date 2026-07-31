@@ -36,6 +36,7 @@ final class RoutesAnalyzer extends AbstractAnalyzer implements Analyzer
         $unnamed = 0;
         $closures = 0;
         $apiWithoutThrottle = 0;
+        $authWithoutThrottle = [];
 
         foreach ($routes as $route) {
             $methods = method_exists($route, 'methods') ? $route->methods() : [];
@@ -99,6 +100,10 @@ final class RoutesAnalyzer extends AbstractAnalyzer implements Analyzer
             if ($isApi && ! $hasThrottle && ! $this->isFrameworkRoute($uri)) {
                 $apiWithoutThrottle++;
             }
+
+            if ($this->isSensitiveAuthRoute($uri, $name) && ! $hasThrottle) {
+                $authWithoutThrottle[] = $uri;
+            }
         }
 
         if ($unnamed > 0) {
@@ -136,7 +141,49 @@ final class RoutesAnalyzer extends AbstractAnalyzer implements Analyzer
             );
         }
 
+        if ($authWithoutThrottle !== []) {
+            $sample = array_slice(array_values(array_unique($authWithoutThrottle)), 0, 8);
+            $findings[] = $this->finding(
+                Severity::HIGH,
+                $this->category(),
+                'routes.auth_missing_rate_limiter',
+                sprintf('Sensitive auth route(s) without throttle: %s', implode(', ', $sample)),
+                'Login, password reset, and OTP endpoints are prime brute-force targets.',
+                'Add throttle middleware (or RateLimiter) to login/password/OTP routes.',
+                'https://laravel.com/docs/routing#rate-limiting',
+                false,
+                ['routes' => $sample]
+            );
+        }
+
         return $this->result($this->name(), $this->category(), $findings);
+    }
+
+    /**
+     * @param mixed $name
+     */
+    private function isSensitiveAuthRoute(string $uri, $name): bool
+    {
+        $haystack = strtolower($uri.' '.(string) $name);
+        $needles = [
+            'login',
+            'password/email',
+            'password/reset',
+            'forgot-password',
+            'reset-password',
+            'two-factor',
+            '2fa',
+            'otp',
+            'register',
+        ];
+
+        foreach ($needles as $needle) {
+            if (strpos($haystack, $needle) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isFrameworkRoute(string $uri): bool

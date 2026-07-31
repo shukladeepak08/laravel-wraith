@@ -41,6 +41,8 @@ final class ApplicationEnvironmentAnalyzer extends AbstractAnalyzer implements A
         $findings = array_merge($findings, $this->checkLocale());
         $findings = array_merge($findings, $this->checkStorageLink());
         $findings = array_merge($findings, $this->checkCaches());
+        $findings = array_merge($findings, $this->checkStoragePermissions());
+        $findings = array_merge($findings, $this->checkScheduleHint());
 
         return $this->result($this->name(), $this->category(), $findings);
     }
@@ -237,5 +239,86 @@ final class ApplicationEnvironmentAnalyzer extends AbstractAnalyzer implements A
         }
 
         return $findings;
+    }
+
+    /**
+     * @return array<int, \SdPayHub\Wraith\Results\Finding>
+     */
+    private function checkStoragePermissions(): array
+    {
+        $paths = [
+            storage_path(),
+            storage_path('logs'),
+            storage_path('framework'),
+            storage_path('app'),
+            base_path('bootstrap/cache'),
+        ];
+
+        $findings = [];
+
+        foreach ($paths as $path) {
+            if (! is_dir($path)) {
+                continue;
+            }
+
+            if (! is_writable($path)) {
+                $findings[] = $this->finding(
+                    Severity::HIGH,
+                    $this->category(),
+                    'app.storage_not_writable',
+                    sprintf('Directory is not writable: %s', $path),
+                    'Laravel cannot write logs, cache, sessions, or compiled files without writable storage paths.',
+                    'Fix ownership/permissions so the PHP/web user can write to storage/ and bootstrap/cache.',
+                    'https://laravel.com/docs/deployment#server-configuration',
+                    false,
+                    ['path' => $path]
+                );
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * @return array<int, \SdPayHub\Wraith\Results\Finding>
+     */
+    private function checkScheduleHint(): array
+    {
+        $hasSchedule = false;
+
+        $kernel = app_path('Console/Kernel.php');
+        if (is_file($kernel)) {
+            $contents = (string) file_get_contents($kernel);
+            if (strpos($contents, '->daily(') !== false
+                || strpos($contents, '->hourly(') !== false
+                || strpos($contents, '->everyMinute(') !== false
+                || strpos($contents, 'schedule(') !== false) {
+                $hasSchedule = true;
+            }
+        }
+
+        $routesConsole = base_path('routes/console.php');
+        if (is_file($routesConsole)) {
+            $contents = (string) file_get_contents($routesConsole);
+            if (strpos($contents, 'Schedule::') !== false) {
+                $hasSchedule = true;
+            }
+        }
+
+        if (! $hasSchedule || ! $this->isProduction()) {
+            return [];
+        }
+
+        return [
+            $this->finding(
+                Severity::MEDIUM,
+                $this->category(),
+                'app.schedule_requires_cron',
+                'Scheduled tasks are defined, but Wraith cannot verify cron is installed on the server.',
+                'Without a cron entry for `php artisan schedule:run`, scheduled jobs never fire in production.',
+                'Ensure the server crontab runs `* * * * * php /path/to/artisan schedule:run` (or use your host\'s scheduler).',
+                'https://laravel.com/docs/scheduling#running-the-scheduler'
+            ),
+        ];
     }
 }
