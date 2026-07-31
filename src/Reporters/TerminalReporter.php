@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SdPayHub\Wraith\Reporters;
+
+use SdPayHub\Wraith\Results\Finding;
+use SdPayHub\Wraith\Results\Report;
+use SdPayHub\Wraith\Support\Severity;
+
+final class TerminalReporter implements Reporter
+{
+    /** @var bool */
+    private $scoreOnly;
+
+    public function __construct(bool $scoreOnly = false)
+    {
+        $this->scoreOnly = $scoreOnly;
+    }
+
+    public function render(Report $report): string
+    {
+        $lines = [];
+        $lines[] = '';
+        $lines[] = '  Wraith — Laravel diagnostic audit';
+        $lines[] = '  ─────────────────────────────────';
+        $lines[] = sprintf('  Overall score: %s / 100', $report->overallScore());
+        $lines[] = '';
+
+        if ($report->categoryScores() !== []) {
+            $lines[] = '  Category scores:';
+
+            foreach ($report->categoryScores() as $category => $score) {
+                $lines[] = sprintf('    %-16s %s', $category, $score);
+            }
+
+            $lines[] = '';
+        }
+
+        if ($this->scoreOnly) {
+            return implode(PHP_EOL, $lines).PHP_EOL;
+        }
+
+        $findings = $report->findings();
+
+        if ($findings === []) {
+            $lines[] = '  No issues found.';
+            $lines[] = '';
+
+            return implode(PHP_EOL, $lines).PHP_EOL;
+        }
+
+        $grouped = [];
+
+        foreach ($findings as $finding) {
+            $grouped[$finding->severity()][] = $finding;
+        }
+
+        foreach (Severity::ORDER as $severity) {
+            if (! isset($grouped[$severity])) {
+                continue;
+            }
+
+            $lines[] = sprintf('  [%s] (%d)', strtoupper($severity), count($grouped[$severity]));
+
+            /** @var Finding $finding */
+            foreach ($grouped[$severity] as $finding) {
+                $lines[] = sprintf('    • [%s] %s', $finding->code(), $finding->description());
+                $lines[] = sprintf('      Why: %s', $finding->whyItMatters());
+                $lines[] = sprintf('      Fix: %s', $finding->suggestedFix());
+
+                if ($finding->isAutoFixable()) {
+                    $lines[] = '      Auto-fixable: yes (--fix)';
+                }
+
+                if ($finding->docUrl() !== null) {
+                    $lines[] = sprintf('      Docs: %s', $finding->docUrl());
+                }
+
+                $lines[] = '';
+            }
+        }
+
+        $lines[] = sprintf('  %d finding(s) in %.0f ms', count($findings), $report->durationMs());
+        $lines[] = '';
+
+        return implode(PHP_EOL, $lines).PHP_EOL;
+    }
+}

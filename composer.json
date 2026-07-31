@@ -1,0 +1,65 @@
+{
+    "name": "sdpayhub/laravel-wraith",
+    "description": "Point-in-time static (and opt-in dynamic) diagnostic analysis for Laravel applications — configuration, schema, security, and codebase.",
+    "keywords": [
+        "laravel",
+        "wraith",
+        "audit",
+        "diagnostics",
+        "security",
+        "performance",
+        "static-analysis"
+    ],
+    "homepage": "https://github.com/shukladeepak08/laravel-wraith",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "shukladeepak08",
+            "email": "194630609+shukladeepak08@users.noreply.github.com"
+        }
+    ],
+    "require": {
+        "php": "^7.3|^8.0|^8.1|^8.2|^8.3",
+        "illuminate/console": "^8.0|^9.0|^10.0|^11.0|^12.0",
+        "illuminate/contracts": "^8.0|^9.0|^10.0|^11.0|^12.0",
+        "illuminate/database": "^8.0|^9.0|^10.0|^11.0|^12.0",
+        "illuminate/support": "^8.0|^9.0|^10.0|^11.0|^12.0",
+        "symfony/process": "^5.4|^6.0|^7.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.0",
+        "orchestra/testbench": "^6.0|^7.0|^8.0|^9.0|^10.0",
+        "phpstan/phpstan": "^1.10|^2.0",
+        "phpunit/phpunit": "^9.5|^10.0|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "SdPayHub\\Wraith\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SdPayHub\\Wraith\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "SdPayHub\\Wraith\\WraithServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse",
+        "format": "pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "phpstan/extension-installer": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
