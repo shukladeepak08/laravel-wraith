@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SdPayHub\Wraith\Tests\Feature;
 
+use Illuminate\Support\Facades\Artisan;
 use SdPayHub\Wraith\Tests\TestCase;
 
 final class WraithCommandTest extends TestCase
@@ -22,9 +23,11 @@ final class WraithCommandTest extends TestCase
 
     public function test_wraith_score_only(): void
     {
-        $this->artisan('wraith', ['--score' => true, '--only' => 'application'])
-            ->expectsOutputToContain('Overall score')
-            ->assertExitCode(0);
+        // Avoid expectsOutputToContain() — added in Laravel 9; keep L8 compatible.
+        $exit = Artisan::call('wraith', ['--score' => true, '--only' => 'application']);
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Overall score', Artisan::output());
     }
 
     public function test_ci_fail_on_threshold(): void
