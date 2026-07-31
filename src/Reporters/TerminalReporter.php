@@ -25,6 +25,7 @@ final class TerminalReporter implements Reporter
         $lines[] = '  Wraith — Laravel diagnostic audit';
         $lines[] = '  ─────────────────────────────────';
         $lines[] = sprintf('  Overall score: %s / 100', $report->overallScore());
+        $lines[] = '  (100 = healthy · lower = more / worse issues)';
         $lines[] = '';
 
         if ($report->categoryScores() !== []) {
@@ -38,13 +39,22 @@ final class TerminalReporter implements Reporter
         }
 
         if ($this->scoreOnly) {
+            $lines[] = '  Tip: run `php artisan wraith` (without --score) to see issues and fixes.';
+            $lines[] = '';
+
             return implode(PHP_EOL, $lines).PHP_EOL;
         }
 
         $findings = $report->findings();
 
+        $lines[] = '  How to read findings';
+        $lines[] = '  • Severity: critical > high > medium > low > info';
+        $lines[] = '  • Score impact: critical −25 · high −15 · medium −8 · low −3 · info −0';
+        $lines[] = '  • Fix critical/high first; "Auto-fixable" can use --fix';
+        $lines[] = '';
+
         if ($findings === []) {
-            $lines[] = '  No issues found.';
+            $lines[] = '  No issues found. Nice work.';
             $lines[] = '';
 
             return implode(PHP_EOL, $lines).PHP_EOL;
@@ -70,7 +80,7 @@ final class TerminalReporter implements Reporter
                 $lines[] = sprintf('      Fix: %s', $finding->suggestedFix());
 
                 if ($finding->isAutoFixable()) {
-                    $lines[] = '      Auto-fixable: yes (--fix)';
+                    $lines[] = '      Auto-fixable: yes  →  php artisan wraith --fix --dry-run';
                 }
 
                 if ($finding->docUrl() !== null) {
@@ -82,6 +92,12 @@ final class TerminalReporter implements Reporter
         }
 
         $lines[] = sprintf('  %d finding(s) in %.0f ms', count($findings), $report->durationMs());
+        $lines[] = '';
+        $lines[] = '  Next steps';
+        $lines[] = '  • Preview safe fixes:  php artisan wraith --fix --dry-run';
+        $lines[] = '  • HTML report:         php artisan wraith --html';
+        $lines[] = '  • CI gate:             php artisan wraith --ci --fail-on=high';
+        $lines[] = '  • Docs: https://github.com/shukladeepak08/laravel-wraith';
         $lines[] = '';
 
         return implode(PHP_EOL, $lines).PHP_EOL;

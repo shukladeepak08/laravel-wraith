@@ -37,7 +37,7 @@ final class WraithCommand extends Command
     /**
      * @var string
      */
-    protected $description = 'Run Wraith point-in-time diagnostic analysis on this Laravel application';
+    protected $description = 'Audit this Laravel app and print a scored list of issues (try: php artisan wraith)';
 
     /** @var AnalyzerPipeline */
     private $pipeline;

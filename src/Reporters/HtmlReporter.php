@@ -83,6 +83,7 @@ HTML;
     <h1>Wraith</h1>
     <p class="meta">Point-in-time Laravel diagnostic audit</p>
     <p class="score">{$overall} <span style="font-size:1rem;color:var(--muted)">/ 100</span></p>
+    <p class="meta">100 = healthy. Issues subtract points: critical −25, high −15, medium −8, low −3, info −0. Fix critical/high first.</p>
     <table>
       <thead><tr><th>Category</th><th>Score</th></tr></thead>
       <tbody>{$scoresRows}</tbody>

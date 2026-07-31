@@ -2,6 +2,12 @@
 
 All notable changes to `sdpayhub/laravel-wraith` will be documented in this file.
 
+## [0.1.1] — 2026-07-31
+
+### Changed
+- README rewritten for first-time users: quick start, sample report, how to read scores
+- Terminal output now includes a short legend and next-step tips
+
 ## [0.1.0] — 2026-07-27
 
 ### Added

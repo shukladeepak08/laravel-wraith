@@ -1,161 +1,199 @@
 # Laravel Wraith
 
-**Point-in-time diagnostic analysis for Laravel applications.**
-
-`sdpayhub/laravel-wraith` inspects your app **as it stands right now** — configuration, database schema, routes, Eloquent models, security posture, and codebase tooling — and reports severity-ranked, actionable findings.
-
-It is **not** a profiler, APM, or continuous health monitor. It does not watch requests over time. One command run, one snapshot.
+Inspect your Laravel app **right now** — config, security, database schema, routes, models — and get a scored list of problems with suggested fixes.
 
 ```bash
 composer require sdpayhub/laravel-wraith --dev
 php artisan wraith
 ```
 
-Requires **PHP ^7.3|^8.0+** and **Laravel 8–12**.
+Works with **Laravel 8–12** (PHP 7.3+).
 
 ---
 
-## What this is / what this isn't
+## Quick start (3 steps)
 
-| This is | This is not |
-|---|---|
-| A static (plus opt-in dynamic) audit you run on demand or in CI | Telescope / Pulse / continuous APM |
-| A maintained successor-shaped tool for the gap left by archived [Enlightn](https://github.com/enlightn/enlightn) | A fork of Enlightn (MIT, clean-room) |
-| Schema-depth + scoring + safe `--fix` | Spatie Laravel Health (runtime checks) |
-| Wrapper around `composer audit`, `npm audit`, PHPStan, Pint | A custom vulnerability DB or secret scanner |
-
-**Explicitly out of scope:** query plans / `EXPLAIN`, lock contention, continuous latency metrics, “smart” business-logic auto-fixes (eager loading, inventing indexes), homegrown secret scanning.
-
-**Dynamic Mode (`--dynamic`)** is opt-in and makes **real HTTP requests**. Default is GET-only. Use on disposable environments when unsure.
-
----
-
-## Why “Wraith”?
-
-`laravel-vitals` collides with an existing Lighthouse/RUM package. Wraith is a silent inspector: it walks your app once and reports what looks wrong. Packagist name `sdpayhub/laravel-wraith` and Artisan command `wraith` are unused.
-
-Community Enlightn forks (`exin/enlightn`, `ivqonsanada/enlightn`) are compatibility patches. Wraith’s pitch is **Laravel 8–12 support, schema depth, transparent scoring, enumerated `--fix`, and opt-in dynamic query analysis** — not “Enlightn with a bump.”
-
----
-
-## Installation
+### 1. Install
 
 ```bash
 composer require sdpayhub/laravel-wraith --dev
+```
+
+Optional (only if you want to change weights / thresholds):
+
+```bash
 php artisan vendor:publish --tag=wraith-config
 ```
 
----
-
-## Command surface
+### 2. Run
 
 ```bash
-php artisan wraith                         # all static analyzers
-php artisan wraith --only=security,database
-php artisan wraith --except=routes
-php artisan wraith --json
-php artisan wraith --html                  # also writes storage/wraith/report-*.html
-php artisan wraith --markdown
-php artisan wraith --score                 # score only
-php artisan wraith --ci --fail-on=high     # non-zero exit for CI
-php artisan wraith --fix --dry-run         # preview safe fixes
-php artisan wraith --fix                   # apply safe fixes (with backup)
-php artisan wraith --restore               # restore last --fix backup
-php artisan wraith --dynamic               # opt-in route replay + query patterns
-php artisan wraith --dynamic --routes=api/*
+php artisan wraith
 ```
 
-Categories for `--only` / `--except`: `application`, `security`, `configuration`, `database`, `eloquent`, `routes`, `performance`, `code_quality`, `dynamic`.
+That’s it. Wraith scans your app once and prints a report in the terminal.
 
----
+### 3. Read the report
 
-## Analyzers
+You’ll see something like:
 
-### Application & Environment
-`APP_DEBUG` in production, missing `APP_KEY`, maintenance mode, timezone/locale, storage symlink, config/route cache presence in production.
+```text
+  Wraith — Laravel diagnostic audit
+  ─────────────────────────────────
+  Overall score: 77 / 100          ← higher is healthier (100 = clean)
 
-### Security
-Production session/cookie hardening, HTTPS `APP_URL`, `.env` gitignore / public exposure, **`composer audit`**, **`npm`/`pnpm audit`** when `package.json` exists, gitleaks suggestion (integration point only).
+  Category scores:
+    application      100
+    security          70           ← this category lost points
+    database          85
 
-### Configuration
-Missing core env keys, non-boolean-like bool env values, version-sensitive deprecated key hints.
+  How to read this
+  • Score starts at 100 per category; each issue subtracts points
+  • critical −25 · high −15 · medium −8 · low −3 · info −0
+  • Fix critical/high first
 
-### Database schema
-Pending migrations, missing/empty `down()` methods, missing primary keys, FK columns without indexes, likely missing FK constraints on `*_id` columns, duplicate indexes, collation mismatches. (MySQL gets the deepest checks; SQLite/Postgres get a subset.)
+  [CRITICAL] (1)
+    • [app.debug_in_production] APP_DEBUG is enabled in production.
+      Why: Exposes stack traces and secrets to users.
+      Fix: Set APP_DEBUG=false in .env
+      Auto-fixable: yes (--fix)
 
-### Eloquent
-Missing `$fillable`/`$guarded`, fully unguarded models, `deleted_at` without SoftDeletes, weak missing-casts signals.
+  [HIGH] (2)
+    • [security.session_insecure] Session cookies are not marked secure...
+      Why: ...
+      Fix: ...
 
-### Routes
-Duplicates, unnamed routes, closure routes in production (blocks route cache), API routes without throttle.
+  3 finding(s) in 412 ms
 
-### Performance & Assets
-`sync`/`file`/`array` drivers in production, OPcache, asset manifest / minification heuristic, Horizon/Octane config presence.
-
-### Code quality
-Delegates to PHPStan and Pint when installed; does not reimplement cyclomatic complexity or dead-code detection.
-
-### Dynamic (opt-in)
-Attaches `DB::listen`, replays GET routes (no required params by default), flags duplicate queries, N+1-shaped patterns, and slow queries.
-
----
-
-## Scoring
-
-Not a black box. Documented in `config/wraith.php`:
-
-```
-category_score = max(0, 100 - sum(severity_penalties))
-overall_score  = weighted average of category scores
+  Next steps
+  • Fix critical/high issues first
+  • Preview safe fixes:  php artisan wraith --fix --dry-run
+  • Shareable HTML:      php artisan wraith --html
+  • CI gate:             php artisan wraith --ci --fail-on=high
 ```
 
-Default severity penalties: critical 25, high 15, medium 8, low 3, info 0.  
-Default weights: security 2.0, database 1.5, dynamic 1.5, others 1.0.  
-Override freely — expect disagreement; make the formula yours.
-
----
-
-## Safe auto-fix (enumerated)
-
-Only these fix codes are supported:
-
-| Fix code | What it does |
+| What you see | What it means |
 |---|---|
-| `gitignore_env` | Ensures `.env` is listed in `.gitignore` |
-| `env_bool_normalize` | Sets an env key to an explicit `true`/`false` |
-| `pint` | Runs `vendor/bin/pint` |
+| **Overall score** | Weighted health score for this run (0–100) |
+| **Category scores** | Score per area (security, database, …) |
+| **`[CRITICAL]` / `[HIGH]` …** | How urgent the issue is |
+| **Why** | Why it matters |
+| **Fix** | What to do |
+| **Auto-fixable: yes** | Wraith can apply a safe mechanical fix with `--fix` |
 
-`--fix` writes a backup under `storage/wraith/backups`. `--restore` reverts tracked files from the latest backup. Nothing “smart” (no eager-load inventing, no index creation).
+---
+
+## Common commands
+
+| Goal | Command |
+|---|---|
+| Full audit (default) | `php artisan wraith` |
+| Only security + database | `php artisan wraith --only=security,database` |
+| Skip routes | `php artisan wraith --except=routes` |
+| Score numbers only | `php artisan wraith --score` |
+| JSON (for scripts) | `php artisan wraith --json` |
+| HTML file you can open/share | `php artisan wraith --html` |
+| Markdown | `php artisan wraith --markdown` |
+| Fail CI on high+ issues | `php artisan wraith --ci --fail-on=high` |
+| Preview safe auto-fixes | `php artisan wraith --fix --dry-run` |
+| Apply safe auto-fixes | `php artisan wraith --fix` |
+| Undo last `--fix` | `php artisan wraith --restore` |
+| Live query patterns (opt-in) | `php artisan wraith --dynamic` |
+
+Categories: `application`, `security`, `configuration`, `database`, `eloquent`, `routes`, `performance`, `code_quality`, `dynamic`.
+
+---
+
+## What this is / isn’t
+
+| This is | This is not |
+|---|---|
+| A one-shot audit of config, schema, and code | Telescope / Pulse / continuous APM |
+| Something you run locally or in CI | A runtime health ping every minute |
+| Actionable findings with suggested fixes | A replacement for PHPStan (it wraps it) |
+
+**Out of scope:** `EXPLAIN` / query plans, lock contention, continuous latency, inventing indexes/eager loads, custom vulnerability databases.
+
+**`--dynamic` warning:** makes real GET requests to your app. Use on a disposable environment if unsure.
+
+---
+
+## Scoring (simple version)
+
+1. Every category starts at **100**.
+2. Each finding subtracts points by severity:
+
+   | Severity | Points lost |
+   |---|---|
+   | critical | 25 |
+   | high | 15 |
+   | medium | 8 |
+   | low | 3 |
+   | info | 0 |
+
+3. **Overall score** = weighted average of category scores.  
+   Security counts more (weight 2.0), database/dynamic 1.5, others 1.0.
+
+Change weights anytime in `config/wraith.php` after publishing the config.
+
+**CI note:** `--ci --fail-on=high` fails the build if any finding is high or worse — it does **not** use the 0–100 score as the fail gate.
+
+---
+
+## Safe auto-fix
+
+Only these mechanical fixes are supported (nothing “smart”):
+
+| Fix | What it does |
+|---|---|
+| `gitignore_env` | Ensure `.env` is in `.gitignore` |
+| `env_bool_normalize` | Set an env key to `true`/`false` |
+| `pint` | Run Laravel Pint |
+
+Always preview first:
+
+```bash
+php artisan wraith --fix --dry-run
+php artisan wraith --fix
+php artisan wraith --restore   # if you need to undo
+```
+
+---
+
+## What Wraith checks
+
+- **Application** — debug mode, app key, timezone, storage link, config/route cache in production  
+- **Security** — session cookies, HTTPS URL, `.env` exposure, `composer audit`, npm/pnpm audit, gitleaks hint  
+- **Configuration** — missing env keys, bad bool values  
+- **Database** — pending migrations, missing `down()`, PKs/FKs/indexes, collation (deepest on MySQL)  
+- **Eloquent** — mass assignment, soft deletes mismatches  
+- **Routes** — duplicates, unnamed routes, closures in production, API throttling  
+- **Performance** — `sync`/`file`/`array` drivers in production, OPcache, assets, Horizon/Octane  
+- **Code quality** — wraps PHPStan & Pint when installed  
+- **Dynamic (opt-in)** — N+1 / duplicate / slow query patterns via route replay  
 
 ---
 
 ## CI example
 
 ```yaml
-- run: php artisan wraith --ci --fail-on=high --json
+- name: Wraith audit
+  run: php artisan wraith --ci --fail-on=high --json
 ```
-
----
-
-## Testing note
-
-Analyzer tests use **fixture / in-memory** apps and schemas, not production-scale databases. That is intentional.
 
 ---
 
 ## Compatibility
 
-| Laravel | PHP (typical) |
+| Laravel | PHP |
 |---|---|
-| 8 | 7.3–8.1 (package uses PHPDoc property types for 7.3) |
+| 8 | 7.3–8.1 |
 | 9 | 8.0–8.2 |
 | 10 | 8.1+ |
 | 11–12 | 8.2+ |
-
-Version-sensitive analyzers are marked in source comments.
 
 ---
 
 ## License
 
-MIT. See [LICENSE.md](LICENSE.md), [CHANGELOG.md](CHANGELOG.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md).
+MIT — [LICENSE.md](LICENSE.md) · [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md)
