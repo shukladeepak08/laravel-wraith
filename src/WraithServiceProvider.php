@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SdPayHub\Wraith;
 
 use Illuminate\Support\ServiceProvider;
+use SdPayHub\Wraith\Console\WraithBaselineCommand;
 use SdPayHub\Wraith\Console\WraithCommand;
 use SdPayHub\Wraith\Contracts\Analyzer;
 use SdPayHub\Wraith\Contracts\DynamicAnalyzer;
@@ -70,7 +71,10 @@ final class WraithServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([WraithCommand::class]);
+            $this->commands([
+                WraithCommand::class,
+                WraithBaselineCommand::class,
+            ]);
 
             $this->publishes([
                 __DIR__.'/../config/wraith.php' => config_path('wraith.php'),

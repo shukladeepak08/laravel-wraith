@@ -2,6 +2,18 @@
 
 All notable changes to `sdpayhub/laravel-wraith` will be documented in this file.
 
+## [0.3.0] — 2026-08-10
+
+### Added
+- Baseline support: `php artisan wraith:baseline`, `--update-baseline`, `--no-baseline`, `--diff`
+- Config `ignore` list for permanent finding-code suppressions
+- Report / JSON fields for ignored and baselined counts; terminal "Suppressed" line
+
+### Changed
+- Schedule/cron reminder: only when real schedule registrations exist; severity lowered to `info`
+- Dynamic mode: require local/testing by default (`--force-dynamic` to override), exclude Telescope/Horizon/Livewire/etc., lower max routes, higher duplicate-query threshold
+- README badges, before/after CI tip; SECURITY.md uses GitHub advisories
+
 ## [0.2.0] — 2026-07-31
 
 ### Added

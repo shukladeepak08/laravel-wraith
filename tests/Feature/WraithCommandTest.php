@@ -40,4 +40,58 @@ final class WraithCommandTest extends TestCase
             '--fail-on' => 'critical',
         ])->assertExitCode(1);
     }
+
+    public function test_baseline_suppresses_findings_for_ci(): void
+    {
+        config(['app.env' => 'production', 'app.debug' => true]);
+
+        $path = storage_path('wraith/ci-baseline.json');
+        config(['wraith.baseline.path' => $path]);
+        @unlink($path);
+
+        $this->artisan('wraith:baseline', ['--only' => 'application'])->assertExitCode(0);
+        $this->assertFileExists($path);
+
+        $this->artisan('wraith', [
+            '--only' => 'application',
+            '--ci' => true,
+            '--fail-on' => 'critical',
+            '--diff' => true,
+        ])->assertExitCode(0);
+
+        @unlink($path);
+    }
+
+    public function test_no_baseline_shows_issues_again(): void
+    {
+        config(['app.env' => 'production', 'app.debug' => true]);
+
+        $path = storage_path('wraith/ci-baseline-2.json');
+        config(['wraith.baseline.path' => $path]);
+        @unlink($path);
+
+        $this->artisan('wraith:baseline', ['--only' => 'application'])->assertExitCode(0);
+
+        $this->artisan('wraith', [
+            '--only' => 'application',
+            '--ci' => true,
+            '--fail-on' => 'critical',
+            '--no-baseline' => true,
+        ])->assertExitCode(1);
+
+        @unlink($path);
+    }
+
+    public function test_dynamic_blocked_outside_local(): void
+    {
+        config([
+            'app.env' => 'production',
+            'wraith.dynamic.require_local_env' => true,
+        ]);
+
+        $this->artisan('wraith', [
+            '--only' => 'dynamic',
+            '--dynamic' => true,
+        ])->assertExitCode(2);
+    }
 }

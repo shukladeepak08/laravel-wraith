@@ -2,7 +2,12 @@
 
 ## Reporting a vulnerability in Wraith itself
 
-If you discover a security issue **in this package** (not in an application Wraith audits), please email **security@sdpayhub.com** with:
+If you discover a security issue **in this package** (not in an application Wraith audits), please report it privately via one of:
+
+1. **GitHub Security Advisories** (preferred): [Report a vulnerability](https://github.com/shukladeepak08/laravel-wraith/security/advisories/new)
+2. Open a private report through the repository Security tab if the form is available
+
+Include:
 
 - Description of the issue
 - Steps to reproduce

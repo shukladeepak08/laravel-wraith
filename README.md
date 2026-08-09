@@ -1,5 +1,10 @@
 # Laravel Wraith
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/sdpayhub/laravel-wraith.svg?style=flat-square)](https://packagist.org/packages/sdpayhub/laravel-wraith)
+[![Total Downloads](https://img.shields.io/packagist/dt/sdpayhub/laravel-wraith.svg?style=flat-square)](https://packagist.org/packages/sdpayhub/laravel-wraith)
+[![License](https://img.shields.io/packagist/l/sdpayhub/laravel-wraith.svg?style=flat-square)](https://packagist.org/packages/sdpayhub/laravel-wraith)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/shukladeepak08/laravel-wraith/tests.yml?branch=main&style=flat-square&label=tests)](https://github.com/shukladeepak08/laravel-wraith/actions)
+
 Inspect your Laravel app **right now** — config, security, database schema, routes, models — and get a scored list of problems with suggested fixes.
 
 ```bash
@@ -8,6 +13,21 @@ php artisan wraith
 ```
 
 Works with **Laravel 8–12** (PHP 7.3+).
+
+### Before / after
+
+```text
+# Before — first run on a typical app
+Overall score: 62 / 100
+[CRITICAL] APP_DEBUG is enabled in production
+[HIGH]     Session cookies are not marked secure
+[HIGH]     Telescope is present in a production environment
+
+# After — fix critical/high (or baseline accepted debt)
+php artisan wraith:baseline   # optional: accept remaining low noise
+php artisan wraith --ci --fail-on=high
+# exit 0 — CI only fails on *new* findings
+```
 
 ---
 
@@ -99,8 +119,46 @@ You’ll see something like:
 | Apply safe auto-fixes | `php artisan wraith --fix` |
 | Undo last `--fix` | `php artisan wraith --restore` |
 | Live query patterns (opt-in) | `php artisan wraith --dynamic` |
+| Force dynamic outside local | `php artisan wraith --dynamic --force-dynamic` |
+| Write baseline (accepted debt) | `php artisan wraith:baseline` |
+| Update baseline | `php artisan wraith --update-baseline` |
+| Show everything (skip baseline) | `php artisan wraith --no-baseline` |
+| CI: fail only on new issues | `php artisan wraith --ci --fail-on=high --diff` |
 
 Categories: `application`, `security`, `configuration`, `database`, `eloquent`, `routes`, `performance`, `code_quality`, `dynamic`.
+
+---
+
+## Baseline & ignore list
+
+Two ways to silence known findings without losing the score for *new* problems:
+
+### 1. Permanent ignore (config)
+
+```bash
+php artisan vendor:publish --tag=wraith-config
+```
+
+```php
+// config/wraith.php
+'ignore' => [
+    'app.schedule_requires_cron',
+],
+```
+
+### 2. Baseline file (accepted debt)
+
+```bash
+php artisan wraith:baseline
+# writes storage/wraith/baseline.json
+```
+
+When that file exists, matching findings are hidden from reports and do not fail `--ci`. Commit it (team-shared) or keep it local.
+
+```bash
+php artisan wraith --update-baseline   # refresh after a cleanup
+php artisan wraith --no-baseline       # see the full list again
+```
 
 ---
 
@@ -114,7 +172,7 @@ Categories: `application`, `security`, `configuration`, `database`, `eloquent`, 
 
 **Out of scope:** `EXPLAIN` / query plans, lock contention, continuous latency, inventing indexes/eager loads, custom vulnerability databases.
 
-**`--dynamic` warning:** makes real GET requests to your app. Use on a disposable environment if unsure.
+**`--dynamic` warning:** makes real GET requests to your app. Blocked outside `local`/`testing` unless you pass `--force-dynamic`. Skips Telescope/Horizon/Livewire/etc. by default. Use on a disposable environment if unsure.
 
 ---
 
@@ -165,7 +223,7 @@ php artisan wraith --restore   # if you need to undo
 ### Application
 - Debug mode, app key, timezone, storage link, config/route cache in production  
 - Writable `storage/` + `bootstrap/cache`  
-- Scheduled tasks defined (cron reminder for production)  
+- Scheduled tasks defined (cron reminder for production; info-level)  
 
 ### Security
 - Session cookies, HTTPS `APP_URL`, `.env` exposure  
@@ -211,8 +269,10 @@ php artisan wraith --restore   # if you need to undo
 
 ```yaml
 - name: Wraith audit
-  run: php artisan wraith --ci --fail-on=high --json
+  run: php artisan wraith --ci --fail-on=high --diff --json
 ```
+
+With a committed `storage/wraith/baseline.json` (or a path set in config), only **new** findings fail the job.
 
 ---
 

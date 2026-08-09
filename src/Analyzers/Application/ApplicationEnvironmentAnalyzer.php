@@ -284,41 +284,56 @@ final class ApplicationEnvironmentAnalyzer extends AbstractAnalyzer implements A
      */
     private function checkScheduleHint(): array
     {
-        $hasSchedule = false;
-
-        $kernel = app_path('Console/Kernel.php');
-        if (is_file($kernel)) {
-            $contents = (string) file_get_contents($kernel);
-            if (strpos($contents, '->daily(') !== false
-                || strpos($contents, '->hourly(') !== false
-                || strpos($contents, '->everyMinute(') !== false
-                || strpos($contents, 'schedule(') !== false) {
-                $hasSchedule = true;
-            }
-        }
-
-        $routesConsole = base_path('routes/console.php');
-        if (is_file($routesConsole)) {
-            $contents = (string) file_get_contents($routesConsole);
-            if (strpos($contents, 'Schedule::') !== false) {
-                $hasSchedule = true;
-            }
-        }
-
-        if (! $hasSchedule || ! $this->isProduction()) {
+        // Avoid matching empty `protected function schedule(Schedule $schedule)` stubs.
+        if (! $this->hasScheduledTasks() || ! $this->isProduction()) {
             return [];
         }
 
         return [
             $this->finding(
-                Severity::MEDIUM,
+                Severity::INFO,
                 $this->category(),
                 'app.schedule_requires_cron',
-                'Scheduled tasks are defined, but Wraith cannot verify cron is installed on the server.',
+                'Scheduled tasks are defined; confirm cron (or a host scheduler) runs `schedule:run`.',
                 'Without a cron entry for `php artisan schedule:run`, scheduled jobs never fire in production.',
                 'Ensure the server crontab runs `* * * * * php /path/to/artisan schedule:run` (or use your host\'s scheduler).',
                 'https://laravel.com/docs/scheduling#running-the-scheduler'
             ),
         ];
+    }
+
+    private function hasScheduledTasks(): bool
+    {
+        $signals = [
+            '->daily(',
+            '->hourly(',
+            '->everyMinute(',
+            '->everyFiveMinutes(',
+            '->everyTenMinutes(',
+            '->everyFifteenMinutes(',
+            '->everyThirtyMinutes(',
+            '->weekly(',
+            '->monthly(',
+            '->yearly(',
+            '->cron(',
+            '$schedule->',
+            'Schedule::',
+        ];
+
+        foreach ([app_path('Console/Kernel.php'), base_path('routes/console.php')] as $path) {
+            if (! is_file($path)) {
+                continue;
+            }
+
+            $contents = (string) file_get_contents($path);
+
+            foreach ($signals as $signal) {
+                if (strpos($contents, $signal) !== false) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

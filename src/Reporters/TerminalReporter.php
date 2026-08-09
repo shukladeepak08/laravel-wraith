@@ -47,6 +47,21 @@ final class TerminalReporter implements Reporter
 
         $findings = $report->findings();
 
+        if ($report->ignoredCount() > 0 || $report->baselinedCount() > 0) {
+            $parts = [];
+
+            if ($report->ignoredCount() > 0) {
+                $parts[] = sprintf('%d ignored', $report->ignoredCount());
+            }
+
+            if ($report->baselinedCount() > 0) {
+                $parts[] = sprintf('%d baselined', $report->baselinedCount());
+            }
+
+            $lines[] = '  Suppressed: '.implode(', ', $parts).' (see config ignore / baseline.json)';
+            $lines[] = '';
+        }
+
         $lines[] = '  How to read findings';
         $lines[] = '  • Severity: critical > high > medium > low > info';
         $lines[] = '  • Score impact: critical −25 · high −15 · medium −8 · low −3 · info −0';
@@ -95,6 +110,7 @@ final class TerminalReporter implements Reporter
         $lines[] = '';
         $lines[] = '  Next steps';
         $lines[] = '  • Preview safe fixes:  php artisan wraith --fix --dry-run';
+        $lines[] = '  • Accept current debt: php artisan wraith:baseline';
         $lines[] = '  • HTML report:         php artisan wraith --html';
         $lines[] = '  • CI gate:             php artisan wraith --ci --fail-on=high';
         $lines[] = '  • Docs: https://github.com/shukladeepak08/laravel-wraith';

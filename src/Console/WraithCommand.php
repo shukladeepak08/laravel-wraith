@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SdPayHub\Wraith\Console;
 
 use Illuminate\Console\Command;
+use SdPayHub\Wraith\Baseline\BaselineStore;
 use SdPayHub\Wraith\Fix\SafeFixer;
 use SdPayHub\Wraith\Pipeline\AnalyzerPipeline;
 use SdPayHub\Wraith\Reporters\HtmlReporter;
@@ -32,7 +33,11 @@ final class WraithCommand extends Command
                             {--dry-run : Preview fixes without writing}
                             {--restore : Restore files from the last --fix backup}
                             {--dynamic : Opt-in dynamic route replay / query analysis}
-                            {--routes= : Comma-separated route patterns for --dynamic}';
+                            {--force-dynamic : Allow --dynamic outside local/testing}
+                            {--routes= : Comma-separated route patterns for --dynamic}
+                            {--diff : Hide baselined findings (default when a baseline file exists)}
+                            {--no-baseline : Show all findings, ignore baseline file}
+                            {--update-baseline : Rewrite the baseline with this run\'s findings}';
 
     /**
      * @var string
@@ -67,6 +72,9 @@ final class WraithCommand extends Command
         $only = $this->parseList($this->option('only'));
         $except = $this->parseList($this->option('except'));
         $dynamic = (bool) $this->option('dynamic');
+        $forceDynamic = (bool) $this->option('force-dynamic');
+        $noBaseline = (bool) $this->option('no-baseline');
+        $updateBaseline = (bool) $this->option('update-baseline');
 
         if ($dynamic && $this->option('routes')) {
             $patterns = $this->parseList($this->option('routes'));
@@ -74,10 +82,25 @@ final class WraithCommand extends Command
         }
 
         if ($dynamic) {
+            if (! $this->dynamicEnvAllowed($forceDynamic)) {
+                $this->error('Dynamic mode is blocked outside local/testing. Pass --force-dynamic to override, or set wraith.dynamic.require_local_env=false.');
+
+                return 2;
+            }
+
             $this->warn('Dynamic mode enabled: Wraith will make real GET requests to your app.');
         }
 
-        $report = $this->pipeline->run($only, $except, $dynamic);
+        if ($updateBaseline) {
+            $raw = $this->pipeline->runRaw($only, $except, $dynamic);
+            $store = new BaselineStore($this->baselinePath());
+            $count = $store->write($raw);
+            $this->info(sprintf('Updated baseline with %d finding(s): %s', $count, $store->path()));
+        }
+
+        // Baseline is applied when a file exists (or --diff). --no-baseline shows everything.
+        $applyBaseline = ! $noBaseline;
+        $report = $this->pipeline->run($only, $except, $dynamic, $applyBaseline);
 
         if ((bool) $this->option('fix') || (bool) $this->option('dry-run')) {
             // --dry-run (with or without --fix) previews; --fix alone applies.
@@ -119,6 +142,26 @@ final class WraithCommand extends Command
         }
 
         return 0;
+    }
+
+    private function baselinePath(): string
+    {
+        $path = config('wraith.baseline.path');
+
+        return is_string($path) && $path !== ''
+            ? $path
+            : storage_path('wraith/baseline.json');
+    }
+
+    private function dynamicEnvAllowed(bool $force): bool
+    {
+        if ($force || ! (bool) config('wraith.dynamic.require_local_env', true)) {
+            return true;
+        }
+
+        $env = (string) config('app.env', 'production');
+
+        return in_array($env, ['local', 'testing', 'test'], true);
     }
 
     /**

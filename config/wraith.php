@@ -86,6 +86,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Ignore finding codes (permanent)
+    |--------------------------------------------------------------------------
+    |
+    | Exact finding codes to drop from every report and CI run.
+    | Prefer baseline.json for temporary accepted debt.
+    |
+    */
+
+    'ignore' => [
+        // 'app.schedule_requires_cron',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Baseline (accepted findings)
+    |--------------------------------------------------------------------------
+    |
+    | Create with: php artisan wraith:baseline
+    | Update with: php artisan wraith --update-baseline
+    | CI only fails on *new* findings when the baseline file is present.
+    |
+    */
+
+    'baseline' => [
+        'enabled' => true,
+        // Resolved relative to storage_path at runtime if left null.
+        'path' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Safe Auto-Fix
     |--------------------------------------------------------------------------
     */
@@ -114,9 +145,24 @@ return [
         'methods' => ['GET'],
         'allow_non_get' => false,
         'route_patterns' => ['*'],
-        'max_routes' => 50,
+        'exclude_route_patterns' => [
+            'telescope*',
+            'horizon*',
+            'pulse*',
+            '_ignition*',
+            'livewire*',
+            'sanctum/*',
+            'broadcasting/*',
+            'up',
+            'health',
+            'healthz',
+        ],
+        'max_routes' => 25,
         'slow_query_ms' => 100,
         'n_plus_one_threshold' => 5,
+        'duplicate_query_threshold' => 5,
+        // Refuse --dynamic unless app.env is local/testing (override with --force-dynamic).
+        'require_local_env' => true,
     ],
 
     /*

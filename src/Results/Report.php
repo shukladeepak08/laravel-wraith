@@ -21,6 +21,12 @@ final class Report
     /** @var float */
     private $durationMs;
 
+    /** @var int */
+    private $ignoredCount;
+
+    /** @var int */
+    private $baselinedCount;
+
     /**
      * @param array<int, AnalysisResult> $results
      * @param array<string, float>       $categoryScores
@@ -29,12 +35,16 @@ final class Report
         array $results,
         array $categoryScores = [],
         float $overallScore = 100.0,
-        float $durationMs = 0.0
+        float $durationMs = 0.0,
+        int $ignoredCount = 0,
+        int $baselinedCount = 0
     ) {
         $this->results = array_values($results);
         $this->categoryScores = $categoryScores;
         $this->overallScore = $overallScore;
         $this->durationMs = $durationMs;
+        $this->ignoredCount = $ignoredCount;
+        $this->baselinedCount = $baselinedCount;
     }
 
     /**
@@ -79,9 +89,26 @@ final class Report
         return $this->durationMs;
     }
 
+    public function ignoredCount(): int
+    {
+        return $this->ignoredCount;
+    }
+
+    public function baselinedCount(): int
+    {
+        return $this->baselinedCount;
+    }
+
     public function withScores(array $categoryScores, float $overallScore): self
     {
-        return new self($this->results, $categoryScores, $overallScore, $this->durationMs);
+        return new self(
+            $this->results,
+            $categoryScores,
+            $overallScore,
+            $this->durationMs,
+            $this->ignoredCount,
+            $this->baselinedCount
+        );
     }
 
     /**
@@ -94,6 +121,8 @@ final class Report
             'category_scores' => $this->categoryScores,
             'duration_ms' => $this->durationMs,
             'finding_count' => count($this->findings()),
+            'ignored_count' => $this->ignoredCount,
+            'baselined_count' => $this->baselinedCount,
             'results' => array_map(static function (AnalysisResult $result) {
                 return $result->toArray();
             }, $this->results),

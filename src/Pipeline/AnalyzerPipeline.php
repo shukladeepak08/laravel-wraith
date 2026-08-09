@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SdPayHub\Wraith\Pipeline;
 
+use SdPayHub\Wraith\Baseline\BaselineStore;
+use SdPayHub\Wraith\Baseline\FindingFilter;
 use SdPayHub\Wraith\Contracts\Analyzer;
 use SdPayHub\Wraith\Contracts\DynamicAnalyzer;
 use SdPayHub\Wraith\Results\AnalysisResult;
@@ -36,7 +38,21 @@ final class AnalyzerPipeline
      * @param array<int, string> $only
      * @param array<int, string> $except
      */
-    public function run(array $only = [], array $except = [], bool $includeDynamic = false): Report
+    public function run(array $only = [], array $except = [], bool $includeDynamic = false, bool $applyBaseline = true): Report
+    {
+        $report = $this->runRaw($only, $except, $includeDynamic);
+        $report = $this->filter($report, $applyBaseline);
+
+        return $this->scorer->score($report);
+    }
+
+    /**
+     * Unfiltered analysis (used when writing a baseline).
+     *
+     * @param array<int, string> $only
+     * @param array<int, string> $except
+     */
+    public function runRaw(array $only = [], array $except = [], bool $includeDynamic = false): Report
     {
         $started = microtime(true);
         $results = [];
@@ -68,9 +84,28 @@ final class AnalyzerPipeline
         }
 
         $durationMs = (microtime(true) - $started) * 1000;
-        $report = new Report($results, [], 100.0, $durationMs);
 
-        return $this->scorer->score($report);
+        return new Report($results, [], 100.0, $durationMs);
+    }
+
+    private function filter(Report $report, bool $applyBaseline): Report
+    {
+        $ignore = (array) config('wraith.ignore', []);
+        $fingerprints = [];
+
+        if ($applyBaseline && (bool) config('wraith.baseline.enabled', true)) {
+            $path = config('wraith.baseline.path');
+            $path = is_string($path) && $path !== ''
+                ? $path
+                : storage_path('wraith/baseline.json');
+
+            $store = new BaselineStore($path);
+            $fingerprints = $store->fingerprints();
+        }
+
+        $filter = new FindingFilter($ignore, $fingerprints, $applyBaseline && $fingerprints !== []);
+
+        return $filter->apply($report);
     }
 
     /**

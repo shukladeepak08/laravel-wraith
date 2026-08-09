@@ -86,7 +86,8 @@ final class QueryPatternAnalyzer extends AbstractAnalyzer implements DynamicAnal
     private function selectRoutes(): array
     {
         $patterns = (array) config('wraith.dynamic.route_patterns', ['*']);
-        $max = (int) config('wraith.dynamic.max_routes', 50);
+        $exclude = (array) config('wraith.dynamic.exclude_route_patterns', []);
+        $max = (int) config('wraith.dynamic.max_routes', 25);
         $methods = (array) config('wraith.dynamic.methods', ['GET']);
         $allowNonGet = (bool) config('wraith.dynamic.allow_non_get', false);
 
@@ -97,6 +98,10 @@ final class QueryPatternAnalyzer extends AbstractAnalyzer implements DynamicAnal
             $uri = method_exists($route, 'uri') ? $route->uri() : '';
 
             if ($uri === '' || strpos($uri, '{') !== false) {
+                continue;
+            }
+
+            if ($this->matchesPatterns($uri, $exclude)) {
                 continue;
             }
 
@@ -152,10 +157,11 @@ final class QueryPatternAnalyzer extends AbstractAnalyzer implements DynamicAnal
             $counts[$signature] = isset($counts[$signature]) ? $counts[$signature] + 1 : 1;
         }
 
+        $threshold = (int) config('wraith.dynamic.duplicate_query_threshold', 5);
         $findings = [];
 
         foreach ($counts as $signature => $count) {
-            if ($count < 3) {
+            if ($count < $threshold) {
                 continue;
             }
 

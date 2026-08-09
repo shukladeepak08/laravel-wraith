@@ -8,7 +8,13 @@
         "diagnostics",
         "security",
         "performance",
-        "static-analysis"
+        "static-analysis",
+        "health-check",
+        "ci",
+        "devops",
+        "laravel-package",
+        "code-quality",
+        "baseline"
     ],
     "homepage": "https://github.com/shukladeepak08/laravel-wraith",
     "license": "MIT",
